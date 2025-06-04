@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, CircularProgress, Container } from '@mui/material';
 import Globe from '../globe/Globe';
 import Timeline from '../timeline/Timeline';
-import axios from 'axios';
+import { mediaAPI } from '../../services/api';
 
 function Explore() {
   const [loading, setLoading] = useState(true);
@@ -11,35 +11,17 @@ function Explore() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // In a real app, this would fetch from the API
     const fetchMediaItems = async () => {
       try {
         setLoading(true);
         
-        // Mock data for now
-        const mockMediaItems = Array.from({ length: 20 }, (_, i) => {
-          // Generate random coordinates around the world
-          const latitude = (Math.random() * 180) - 90;
-          const longitude = (Math.random() * 360) - 180;
-          
-          // Generate random dates within the last year
-          const date = new Date();
-          date.setDate(date.getDate() - Math.floor(Math.random() * 365));
-          
-          return {
-            id: i + 1,
-            title: `Media ${i + 1}`,
-            media_type: i % 5 === 0 ? 'video' : 'photo',
-            capture_date: date.toISOString(),
-            latitude,
-            longitude,
-            altitude: Math.random() * 100
-          };
-        });
+        // Fetch all media items from API
+        const response = await mediaAPI.getAllMediaItems();
+        const mediaItems = response.data;
         
-        setMediaItems(mockMediaItems);
-        if (mockMediaItems.length > 0) {
-          setSelectedItemId(mockMediaItems[0].id);
+        setMediaItems(mediaItems);
+        if (mediaItems.length > 0) {
+          setSelectedItemId(mediaItems[0].id);
         }
       } catch (err) {
         setError('Failed to fetch media items');

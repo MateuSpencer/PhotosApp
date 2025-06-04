@@ -68,10 +68,18 @@ export const narrativesAPI = {
   deleteNarrative: (id) => {
     return api.delete(`/api/narratives/${id}/`);
   },
+  
+  getNarrativeDays: (id) => {
+    return api.get(`/api/narratives/${id}/days/`);
+  },
 };
 
 // Media API calls
 export const mediaAPI = {
+  getAllMediaItems: () => {
+    return api.get('/api/media/');
+  },
+  
   getMediaItems: (narrativeId) => {
     return api.get(`/api/media/?narrative=${narrativeId}`);
   },

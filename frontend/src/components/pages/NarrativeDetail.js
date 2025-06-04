@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { narrativesAPI, mediaAPI } from '../../services/api';
 import {
   Container,
   Typography,
@@ -33,66 +33,25 @@ function NarrativeDetail() {
   const [tabValue, setTabValue] = useState(0);
 
   useEffect(() => {
-    // In a real app, this would fetch from the API
     const fetchNarrativeDetails = async () => {
       try {
         setLoading(true);
         
-        // Mock data for now
-        const mockNarrative = {
-          id: parseInt(id),
-          title: id === '1' ? 'Norway 2023' : id === '2' ? 'Japan Trip' : 'Family Reunion',
-          description: id === '1' 
-            ? 'A journey through the fjords and mountains of Norway.' 
-            : id === '2' 
-              ? 'Exploring the temples and gardens of Kyoto and Tokyo.'
-              : 'Annual family gathering at Lake Michigan.',
-          start_date: id === '1' ? '2023-05-15' : id === '2' ? '2022-11-03' : '2023-07-04',
-          end_date: id === '1' ? '2023-05-21' : id === '2' ? '2022-11-15' : '2023-07-08',
-          location_summary: id === '1' 
-            ? 'Bergen, Oslo, Tromsø' 
-            : id === '2' 
-              ? 'Tokyo, Kyoto, Osaka'
-              : 'Chicago, Lake Michigan',
-          media_count: id === '1' ? 56 : id === '2' ? 124 : 87
-        };
+        // Fetch narrative details from API
+        const narrativeResponse = await narrativesAPI.getNarrative(id);
+        const narrative = narrativeResponse.data;
         
-        // Generate mock days
-        const mockDays = [];
-        if (mockNarrative.start_date && mockNarrative.end_date) {
-          const start = new Date(mockNarrative.start_date);
-          const end = new Date(mockNarrative.end_date);
-          const locations = mockNarrative.location_summary.split(', ');
-          
-          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const dayIndex = Math.floor((d - start) / (1000 * 60 * 60 * 24));
-            const location = locations[dayIndex % locations.length];
-            const photoCount = Math.floor(Math.random() * 20) + 5;
-            const videoCount = Math.floor(Math.random() * 3);
-            
-            mockDays.push({
-              date: new Date(d).toISOString().split('T')[0],
-              location,
-              photo_count: photoCount,
-              video_count: videoCount
-            });
-          }
-        }
+        // Fetch days for this narrative
+        const daysResponse = await narrativesAPI.getNarrativeDays(id);
+        const days = daysResponse.data;
         
-        // Generate mock media
-        const mockMedia = [];
-        for (let i = 1; i <= 20; i++) {
-          mockMedia.push({
-            id: i,
-            title: `Media ${i}`,
-            media_type: i % 5 === 0 ? 'video' : 'photo',
-            capture_date: mockNarrative.start_date
-          });
-        }
+        // Fetch media for this narrative
+        const mediaResponse = await mediaAPI.getMediaItems(id);
+        const media = mediaResponse.data;
         
-        setNarrative(mockNarrative);
-        setDays(mockDays);
-        setMedia(mockMedia);
+        setNarrative(narrative);
+        setDays(days);
+        setMedia(media);
       } catch (err) {
         setError('Failed to fetch narrative details');
         console.error(err);

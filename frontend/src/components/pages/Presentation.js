@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { mediaAPI } from '../../services/api';
 import {
   Box,
   Container,
@@ -27,37 +28,17 @@ function Presentation() {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // In a real app, this would fetch from the API
     const fetchMediaItems = async () => {
       try {
         setLoading(true);
         
-        // Mock data for now
-        const mockMediaItems = Array.from({ length: 15 }, (_, i) => {
-          // Generate random coordinates around the world
-          const latitude = (Math.random() * 180) - 90;
-          const longitude = (Math.random() * 360) - 180;
-          
-          // Generate random dates within the last year
-          const date = new Date();
-          date.setDate(date.getDate() - Math.floor(Math.random() * 365));
-          
-          return {
-            id: i + 1,
-            title: `Media ${i + 1}`,
-            media_type: i % 5 === 0 ? 'video' : 'photo',
-            capture_date: date.toISOString(),
-            latitude,
-            longitude,
-            altitude: Math.random() * 100,
-            location: i % 3 === 0 ? 'Oslo, Norway' : 
-                     i % 3 === 1 ? 'Bergen, Norway' : 'Tromsø, Norway'
-          };
-        });
+        // Fetch media items for this narrative from API
+        const response = await mediaAPI.getMediaItems(id);
+        const mediaItems = response.data;
         
-        setMediaItems(mockMediaItems);
-        if (mockMediaItems.length > 0) {
-          setSelectedItemId(mockMediaItems[0].id);
+        setMediaItems(mediaItems);
+        if (mediaItems.length > 0) {
+          setSelectedItemId(mediaItems[0].id);
         }
       } catch (err) {
         console.error('Failed to fetch media items', err);

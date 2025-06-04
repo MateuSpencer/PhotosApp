@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { narrativesAPI } from '../../services/api';
 import {
   Container,
   Typography,
@@ -29,42 +29,15 @@ function Projects() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // In a real app, this would fetch from the API
     const fetchNarratives = async () => {
       try {
         setLoading(true);
-        // Mock data for now
-        const mockNarratives = [
-          { 
-            id: 1, 
-            title: 'Norway 2023', 
-            description: 'A journey through the fjords and mountains of Norway.',
-            start_date: '2023-05-15',
-            end_date: '2023-05-21',
-            location_summary: 'Bergen, Oslo, Tromsø',
-            media_count: 56
-          },
-          { 
-            id: 2, 
-            title: 'Japan Trip', 
-            description: 'Exploring the temples and gardens of Kyoto and Tokyo.',
-            start_date: '2022-11-03',
-            end_date: '2022-11-15',
-            location_summary: 'Tokyo, Kyoto, Osaka',
-            media_count: 124
-          },
-          { 
-            id: 3, 
-            title: 'Family Reunion', 
-            description: 'Annual family gathering at Lake Michigan.',
-            start_date: '2023-07-04',
-            end_date: '2023-07-08',
-            location_summary: 'Chicago, Lake Michigan',
-            media_count: 87
-          }
-        ];
         
-        setNarratives(mockNarratives);
+        // Fetch narratives from API
+        const response = await narrativesAPI.getNarratives();
+        const narratives = response.data;
+        
+        setNarratives(narratives);
       } catch (err) {
         setError('Failed to fetch narratives');
         console.error(err);
@@ -80,22 +53,13 @@ function Projects() {
     if (!newNarrativeTitle) return;
     
     try {
-      // In a real app, this would make an API call
-      // const response = await axios.post('/api/narratives/', {
-      //   title: newNarrativeTitle,
-      //   description: newNarrativeDescription
-      // });
-      
-      // Mock response
-      const newNarrative = {
-        id: narratives.length + 1,
+      // Create narrative via API
+      const response = await narrativesAPI.createNarrative({
         title: newNarrativeTitle,
-        description: newNarrativeDescription,
-        start_date: null,
-        end_date: null,
-        location_summary: '',
-        media_count: 0
-      };
+        description: newNarrativeDescription
+      });
+      
+      const newNarrative = response.data;
       
       setNarratives([...narratives, newNarrative]);
       setOpenDialog(false);

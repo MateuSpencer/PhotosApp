@@ -8,7 +8,7 @@
   - [x] Data models
   - [x] API endpoints
   - [x] Authentication flow
-- [x] Create initial interface mockups
+- [x] Create initial interface designs
   - [x] Globe view
   - [x] Timeline component
   - [x] Navigation sidebar

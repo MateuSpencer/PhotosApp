@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { narrativesAPI } from '../../services/api';
 import {
   Drawer,
   List,
@@ -31,9 +32,28 @@ function Sidebar() {
   const [open, setOpen] = useState(true);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [peopleOpen, setPeopleOpen] = useState(false);
+  const [projects, setProjects] = useState([]);
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    // Fetch projects from API
+    const fetchProjects = async () => {
+      try {
+        const response = await narrativesAPI.getNarratives();
+        const narratives = response.data;
+        setProjects(narratives.map(narrative => ({
+          id: narrative.id,
+          title: narrative.title
+        })));
+      } catch (err) {
+        console.error('Failed to fetch projects', err);
+      }
+    };
+
+    fetchProjects();
+  }, []);
 
   const handleDrawerToggle = () => {
     setOpen(!open);
@@ -51,13 +71,6 @@ function Sidebar() {
     await logout();
     navigate('/login');
   };
-
-  // Mock data for projects (would come from API in real app)
-  const projects = [
-    { id: 1, title: 'Norway 2023' },
-    { id: 2, title: 'Japan Trip' },
-    { id: 3, title: 'Family Reunion' },
-  ];
 
   return (
     <Drawer
