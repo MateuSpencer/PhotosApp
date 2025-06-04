@@ -3,35 +3,28 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { mediaAPI } from '../../services/api';
 import {
   Box,
-  Container,
   Typography,
   IconButton,
   Fade,
   Paper
 } from '@mui/material';
 import {
-  SkipPrevious as PrevIcon,
-  SkipNext as NextIcon,
   PlayArrow as PlayIcon,
-  Pause as PauseIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
 import Globe from '../globe/Globe';
 import Timeline from '../timeline/Timeline';
+import ErrorBoundary from '../ErrorBoundary';
 
 function Presentation() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [playing, setPlaying] = useState(false);
   const [mediaItems, setMediaItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState(null);
-  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
     const fetchMediaItems = async () => {
       try {
-        setLoading(true);
-        
         // Fetch media items for this narrative from API
         const response = await mediaAPI.getMediaItems(id);
         const mediaItems = response.data;
@@ -40,19 +33,13 @@ function Presentation() {
         if (mediaItems.length > 0) {
           setSelectedItemId(mediaItems[0].id);
         }
-      } catch (err) {
-        console.error('Failed to fetch media items', err);
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching media items:', error);
       }
     };
 
     fetchMediaItems();
   }, [id]);
-  
-  const handlePlayPause = () => {
-    setPlaying(!playing);
-  };
   
   const handleSelectItem = (itemId) => {
     setSelectedItemId(itemId);
@@ -114,11 +101,13 @@ function Presentation() {
             opacity: 0.8
           }}
         >
-          <Globe 
-            mediaItems={mediaItems} 
-            onSelectItem={handleSelectItem} 
-            selectedItemId={selectedItemId} 
-          />
+          <ErrorBoundary>
+            <Globe 
+              mediaItems={mediaItems} 
+              onSelectItem={handleSelectItem} 
+              selectedItemId={selectedItemId} 
+            />
+          </ErrorBoundary>
         </Box>
         
         {/* Current media */}
