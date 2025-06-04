@@ -2,18 +2,17 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as Cesium from 'cesium';
 import { 
   Cartesian3, 
-  createOsmBuildingsAsync, 
   Ion, 
-  IonImageryProvider,
   Math as CesiumMath, 
-  Terrain, 
   Viewer, 
   Color, 
   Cartesian2,
   NearFarScalar,
   LabelStyle,
   HeightReference,
-  VerticalOrigin
+  VerticalOrigin,
+  EasingFunction,
+  Rectangle
 } from 'cesium';
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { Box, CircularProgress } from '@mui/material';
@@ -65,8 +64,8 @@ const GlobeComponent = ({ mediaItems = [], onSelectItem, selectedItemId }) => {
       //   console.warn('Could not load building tileset:', error);
       // });
 
-      // Set initial camera position (San Francisco as per tutorial)
-      viewer.camera.flyTo({
+      // Set initial camera position
+      viewer.camera.setView({
         destination: Cartesian3.fromDegrees(-122.4175, 37.655, 400),
         orientation: {
           heading: CesiumMath.toRadians(0.0),
@@ -160,31 +159,118 @@ const GlobeComponent = ({ mediaItems = [], onSelectItem, selectedItemId }) => {
         entitiesRef.current.set(item.id, entity);
       });
 
+      // If no item is selected and we have items, show overview
+      if (!selectedItemId && itemsWithLocation.length > 0) {
+        setTimeout(() => {
+          // Calculate bounding rectangle for all points
+          let minLon = Math.min(...itemsWithLocation.map(item => item.longitude));
+          let maxLon = Math.max(...itemsWithLocation.map(item => item.longitude));
+          let minLat = Math.min(...itemsWithLocation.map(item => item.latitude));
+          let maxLat = Math.max(...itemsWithLocation.map(item => item.latitude));
+          
+          // Add some padding
+          const padding = 0.2; // degrees
+          minLon -= padding;
+          maxLon += padding;
+          minLat -= padding;
+          maxLat += padding;
+          
+          viewer.camera.flyTo({
+            destination: Rectangle.fromDegrees(minLon, minLat, maxLon, maxLat),
+            duration: 3.0,
+            easingFunction: EasingFunction.CUBIC_IN_OUT
+          });
+        }, 500); // Small delay to let the viewer settle
+      }
+
     } catch (err) {
       console.error('Error updating media markers:', err);
     }
   }, [mediaItems, selectedItemId]);
 
-  // Focus on selected item
+  // Focus on selected item with smooth transitions
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (selectedItemId && viewer) {
-      try {
+    if (!viewer) return;
+
+    try {
+      if (selectedItemId) {
         const selectedItem = mediaItems.find(item => item.id === selectedItemId);
         if (selectedItem && selectedItem.latitude && selectedItem.longitude) {
-          // Fly to the selected location
+          const targetPosition = Cartesian3.fromDegrees(
+            selectedItem.longitude, 
+            selectedItem.latitude
+          );
+          
+          // Get current camera position
+          const currentPosition = viewer.camera.position;
+          const currentCartographic = viewer.scene.globe.ellipsoid.cartesianToCartographic(currentPosition);
+          
+          // Calculate distance between current and target position
+          const distance = Cesium.Cartesian3.distance(currentPosition, targetPosition);
+          
+          // Calculate appropriate height based on distance and current height
+          let targetHeight;
+          const currentHeight = currentCartographic.height;
+          
+          if (distance < 50000) { // Less than 50km - close transition
+            targetHeight = Math.max(500, Math.min(currentHeight, 2000));
+          } else if (distance < 200000) { // 50-200km - medium transition
+            targetHeight = Math.max(1500, Math.min(currentHeight * 1.2, 5000));
+          } else { // Long distance - higher altitude for overview
+            targetHeight = Math.max(5000, Math.min(currentHeight * 1.5, 15000));
+          }
+          
+          // Smooth transition with adaptive duration
+          const duration = Math.min(Math.max(distance / 100000, 1.0), 4.0);
+          
           viewer.camera.flyTo({
             destination: Cartesian3.fromDegrees(
               selectedItem.longitude, 
               selectedItem.latitude, 
-              1000 // height in meters
+              targetHeight
             ),
-            duration: 2.0 // animation duration in seconds
+            orientation: {
+              heading: CesiumMath.toRadians(0.0), // Point north for consistent orientation
+              pitch: CesiumMath.toRadians(-45.0), // Look down at 45 degree angle to see pins clearly
+              roll: 0.0
+            },
+            duration: duration,
+            easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT
           });
         }
-      } catch (err) {
-        console.error('Error focusing on selected item:', err);
+      } else if (mediaItems.length > 0) {
+        // No item selected - show overview of all pins
+        const itemsWithLocation = mediaItems.filter(item => 
+          item.latitude !== null && 
+          item.longitude !== null && 
+          !isNaN(item.latitude) && 
+          !isNaN(item.longitude)
+        );
+        
+        if (itemsWithLocation.length > 0) {
+          // Calculate bounding rectangle for all points
+          let minLon = Math.min(...itemsWithLocation.map(item => item.longitude));
+          let maxLon = Math.max(...itemsWithLocation.map(item => item.longitude));
+          let minLat = Math.min(...itemsWithLocation.map(item => item.latitude));
+          let maxLat = Math.max(...itemsWithLocation.map(item => item.latitude));
+          
+          // Add some padding
+          const padding = 0.1; // degrees
+          minLon -= padding;
+          maxLon += padding;
+          minLat -= padding;
+          maxLat += padding;
+          
+          viewer.camera.flyTo({
+            destination: Cesium.Rectangle.fromDegrees(minLon, minLat, maxLon, maxLat),
+            duration: 2.0,
+            easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT
+          });
+        }
       }
+    } catch (err) {
+      console.error('Error focusing on selected item:', err);
     }
   }, [selectedItemId, mediaItems]);
 
