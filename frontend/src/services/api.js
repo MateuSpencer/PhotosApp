@@ -9,44 +9,6 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token to requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers['Authorization'] = `Token ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Authentication API calls
-export const authAPI = {
-  login: (username, password) => {
-    return api.post('/api/auth/login/', { username, password });
-  },
-  
-  register: (username, email, password1, password2) => {
-    return api.post('/api/auth/registration/', { 
-      username, 
-      email, 
-      password1, 
-      password2 
-    });
-  },
-  
-  logout: () => {
-    return api.post('/api/auth/logout/');
-  },
-  
-  getCurrentUser: () => {
-    return api.get('/api/auth/user/');
-  },
-};
-
 // Narratives API calls
 export const narrativesAPI = {
   getNarratives: () => {
@@ -71,6 +33,41 @@ export const narrativesAPI = {
   
   getNarrativeDays: (id) => {
     return api.get(`/api/narratives/${id}/days/`);
+  },
+};
+
+// Projects API calls
+export const projectsAPI = {
+  getProjects: () => {
+    return api.get('/api/projects/');
+  },
+  
+  getProject: (id) => {
+    return api.get(`/api/projects/${id}/`);
+  },
+  
+  createProject: (data) => {
+    return api.post('/api/projects/', data);
+  },
+  
+  updateProject: (id, data) => {
+    return api.put(`/api/projects/${id}/`, data);
+  },
+  
+  deleteProject: (id) => {
+    return api.delete(`/api/projects/${id}/`);
+  },
+  
+  addNarrative: (projectId, narrativeId) => {
+    return api.post(`/api/projects/${projectId}/add_narrative/`, { narrative_id: narrativeId });
+  },
+  
+  removeNarrative: (projectId, narrativeId) => {
+    return api.post(`/api/projects/${projectId}/remove_narrative/`, { narrative_id: narrativeId });
+  },
+  
+  getNarratives: (projectId) => {
+    return api.get(`/api/projects/${projectId}/narratives/`);
   },
 };
 

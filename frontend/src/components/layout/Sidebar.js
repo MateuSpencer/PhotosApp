@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 import { narrativesAPI } from '../../services/api';
 import {
   Drawer,
@@ -33,7 +32,6 @@ function Sidebar() {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [projects, setProjects] = useState([]);
-  const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -65,11 +63,6 @@ function Sidebar() {
 
   const handlePeopleToggle = () => {
     setPeopleOpen(!peopleOpen);
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
   };
 
   return (
@@ -184,14 +177,6 @@ function Sidebar() {
               <HelpIcon />
             </ListItemIcon>
             {open && <ListItemText primary="Help" />}
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton onClick={handleLogout}>
-            <ListItemIcon>
-              <ExploreIcon />
-            </ListItemIcon>
-            {open && <ListItemText primary="Logout" />}
           </ListItemButton>
         </ListItem>
       </List>

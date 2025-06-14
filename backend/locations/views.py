@@ -10,17 +10,14 @@ class LocationViewSet(viewsets.ModelViewSet):
     API endpoint that allows locations to be viewed or edited.
     """
     queryset = Location.objects.all()
-    serializer_class = None  # Will be imported below to avoid circular imports
-    permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
         from locations.serializers import LocationSerializer
         return LocationSerializer
     
     def get_queryset(self):
-        # Filter locations based on user's media items
-        user_media_items = MediaItem.objects.filter(owner=self.request.user)
-        return Location.objects.filter(media_items__in=user_media_items).distinct()
+        # Return all locations since we're removing user authentication
+        return Location.objects.all()
     
     @action(detail=True, methods=['get'])
     def media(self, request, pk=None):
@@ -28,7 +25,7 @@ class LocationViewSet(viewsets.ModelViewSet):
         Returns all media items for a specific location.
         """
         location = self.get_object()
-        media_items = location.media_items.filter(owner=request.user)
+        media_items = location.media_items.all()
         from media.serializers import MediaItemSerializer
         serializer = MediaItemSerializer(media_items, many=True, context={'request': request})
         return Response(serializer.data)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { narrativesAPI } from '../../services/api';
+import { narrativesAPI, projectsAPI } from '../../services/api';
 import {
   Container,
   Typography,
@@ -20,57 +20,80 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 
 function Projects() {
-  const [narratives, setNarratives] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [newNarrativeTitle, setNewNarrativeTitle] = useState('');
-  const [newNarrativeDescription, setNewNarrativeDescription] = useState('');
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [newProjectDescription, setNewProjectDescription] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchNarratives = async () => {
+    const fetchProjects = async () => {
       try {
         setLoading(true);
         
-        // Fetch narratives from API
-        const response = await narrativesAPI.getNarratives();
-        const narratives = response.data;
+        // Fetch projects from API
+        const response = await projectsAPI.getProjects();
+        const projects = response.data;
         
-        setNarratives(narratives);
+        // Log projects with their UUIDs to help with debugging
+        console.log('Projects fetched:', projects);
+        
+        setProjects(projects);
       } catch (err) {
-        setError('Failed to fetch narratives');
+        setError('Failed to fetch projects');
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchNarratives();
+    fetchProjects();
   }, []);
 
-  const handleCreateNarrative = async () => {
-    if (!newNarrativeTitle) return;
+  const handleCreateProject = async () => {
+    if (!newProjectTitle) {
+      setError('Project title is required');
+      return;
+    }
     
     try {
-      // Create narrative via API
-      const response = await narrativesAPI.createNarrative({
-        title: newNarrativeTitle,
-        description: newNarrativeDescription
+      // Create project via API with only the required fields
+      const response = await projectsAPI.createProject({
+        title: newProjectTitle,
+        description: newProjectDescription,
+        public_status: 'private'  // Adding default value
       });
       
-      const newNarrative = response.data;
+      const newProject = response.data;
       
-      setNarratives([...narratives, newNarrative]);
+      // Reset form and state
+      setError('');  // Clear any previous errors
+      setProjects([...projects, newProject]);
       setOpenDialog(false);
-      setNewNarrativeTitle('');
-      setNewNarrativeDescription('');
+      setNewProjectTitle('');
+      setNewProjectDescription('');
       
-      // Navigate to the new narrative
-      navigate(`/projects/${newNarrative.id}`);
+      // Navigate to the new project
+      navigate(`/projects/${newProject.id}`);
     } catch (err) {
-      setError('Failed to create narrative');
-      console.error(err);
+      console.error('Project creation error:', err);
+      
+      // Provide more detailed error message if available
+      if (err.response && err.response.data) {
+        // Handle validation errors from DRF
+        if (typeof err.response.data === 'object') {
+          const errorMessages = Object.entries(err.response.data)
+            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+            .join('; ');
+          setError(`Failed to create project: ${errorMessages}`);
+        } else {
+          setError(`Failed to create project: ${err.response.data}`);
+        }
+      } else {
+        setError('Failed to create project. Please try again.');
+      }
     }
   };
 
@@ -86,14 +109,14 @@ function Projects() {
     <Container sx={{ mt: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
         <Typography variant="h4" component="h1">
-          Your Narratives
+          Your Projects
         </Typography>
         <Button 
           variant="contained" 
           startIcon={<AddIcon />}
           onClick={() => setOpenDialog(true)}
         >
-          New Narrative
+          New Project
         </Button>
       </Box>
       
@@ -104,8 +127,8 @@ function Projects() {
       )}
       
       <Grid container spacing={3}>
-        {narratives.map((narrative) => (
-          <Grid item xs={12} sm={6} md={4} key={narrative.id}>
+        {projects.map((project) => (
+          <Grid item xs={12} sm={6} md={4} key={project.id}>
             <Card 
               sx={{ 
                 height: '100%', 
@@ -113,7 +136,7 @@ function Projects() {
                 flexDirection: 'column',
                 cursor: 'pointer'
               }}
-              onClick={() => navigate(`/projects/${narrative.id}`)}
+              onClick={() => navigate(`/projects/${project.id}`)}
             >
               <CardMedia
                 component="div"
@@ -121,26 +144,24 @@ function Projects() {
                   pt: '56.25%', // 16:9 aspect ratio
                   bgcolor: 'primary.light'
                 }}
-                image="/static/images/cards/contemplative-reptile.jpg"
+                image={project.cover_image || "/static/images/cards/contemplative-reptile.jpg"}
               />
               <CardContent sx={{ flexGrow: 1 }}>
                 <Typography gutterBottom variant="h5" component="h2">
-                  {narrative.title}
+                  {project.title}
                 </Typography>
                 <Typography>
-                  {narrative.description}
+                  {project.description}
                 </Typography>
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    {narrative.start_date && narrative.end_date 
-                      ? `${new Date(narrative.start_date).toLocaleDateString()} - ${new Date(narrative.end_date).toLocaleDateString()}`
-                      : 'No dates set'}
+                    {project.narratives_count} narratives
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {narrative.location_summary || 'No locations'}
+                    {project.public_status}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {narrative.media_count} media items
+                    Created: {new Date(project.date_created).toLocaleDateString()}
                   </Typography>
                 </Box>
               </CardContent>
@@ -149,9 +170,9 @@ function Projects() {
         ))}
       </Grid>
       
-      {/* Create Narrative Dialog */}
+      {/* Create Project Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-        <DialogTitle>Create New Narrative</DialogTitle>
+        <DialogTitle>Create New Project</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -161,8 +182,8 @@ function Projects() {
             type="text"
             fullWidth
             variant="outlined"
-            value={newNarrativeTitle}
-            onChange={(e) => setNewNarrativeTitle(e.target.value)}
+            value={newProjectTitle}
+            onChange={(e) => setNewProjectTitle(e.target.value)}
           />
           <TextField
             margin="dense"
@@ -173,13 +194,13 @@ function Projects() {
             variant="outlined"
             multiline
             rows={4}
-            value={newNarrativeDescription}
-            onChange={(e) => setNewNarrativeDescription(e.target.value)}
+            value={newProjectDescription}
+            onChange={(e) => setNewProjectDescription(e.target.value)}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-          <Button onClick={handleCreateNarrative} variant="contained">Create</Button>
+          <Button onClick={handleCreateProject} variant="contained">Create</Button>
         </DialogActions>
       </Dialog>
     </Container>

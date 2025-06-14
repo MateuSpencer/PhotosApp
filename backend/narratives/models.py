@@ -1,14 +1,14 @@
 from django.db import models
-from django.contrib.auth.models import User
+import uuid
 
 class Narrative(models.Model):
     """
     Represents a user's narrative project (e.g., "Norway 2023").
     Contains metadata about the narrative and references to media items.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='narratives')
     cover_image = models.ImageField(upload_to='narrative_covers/', blank=True, null=True)
     
     # Automatically calculated fields

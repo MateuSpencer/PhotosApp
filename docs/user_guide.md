@@ -75,7 +75,6 @@ The application uses:
 
 - Authentication is simulated (no actual backend validation)
 - Media upload is not fully implemented
-- Sample data is used instead of real database content
 - External service integration (Google Photos, iCloud) is not implemented
 
 ## Next Steps

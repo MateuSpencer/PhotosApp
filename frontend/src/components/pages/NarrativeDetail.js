@@ -36,6 +36,13 @@ function NarrativeDetail() {
       try {
         setLoading(true);
         
+        if (!id) {
+          throw new Error('No narrative ID provided');
+        }
+        
+        // Log the ID we're trying to fetch
+        console.log('Fetching narrative with ID:', id);
+        
         // Fetch narrative details from API
         const narrativeResponse = await narrativesAPI.getNarrative(id);
         const narrative = narrativeResponse.data;
