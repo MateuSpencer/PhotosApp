@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@/components/*": [
+        "src/components/*"
+      ],
+      "@/screens/*": [
+        "src/screens/*"
+      ],
+      "@/services/*": [
+        "src/services/*"
+      ],
+      "@/contexts/*": [
+        "src/contexts/*"
+      ],
+      "@/hooks/*": [
+        "src/hooks/*"
+      ],
+      "@/utils/*": [
+        "src/utils/*"
+      ],
+      "@/types/*": [
+        "src/types/*"
+      ],
+      "@/constants/*": [
+        "src/constants/*"
+      ]
+    }
+  },
+  "extends": "expo/tsconfig.base",
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}

@@ -6,20 +6,36 @@ from narratives.models import Narrative
 from narratives.serializers import NarrativeSerializer
 from media.models import MediaItem
 
+
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission to only allow owners of an object to edit it.
+    """
+    def has_object_permission(self, request, view, obj):
+        # Read permissions are allowed for any request
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        # Write permissions only for owner
+        return obj.owner == request.user
+
+
 class NarrativeViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows narratives to be viewed or edited.
     """
     queryset = Narrative.objects.all()
     serializer_class = NarrativeSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
     
     def get_queryset(self):
-        # Return all narratives since we're removing user authentication
-        return Narrative.objects.all()
+        # Return only narratives owned by the current user
+        if self.request.user.is_authenticated:
+            return Narrative.objects.filter(owner=self.request.user)
+        return Narrative.objects.none()
     
     def perform_create(self, serializer):
-        # Create without user ownership since we're removing authentication
-        serializer.save()
+        # Set the owner to the current user
+        serializer.save(owner=self.request.user)
     
     @action(detail=True, methods=['get'])
     def media(self, request, pk=None):

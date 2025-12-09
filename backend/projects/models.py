@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 import uuid
 
 class Project(models.Model):
@@ -11,6 +12,9 @@ class Project(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     cover_image = models.ImageField(upload_to='project_covers/', blank=True, null=True)
+    
+    # Owner - the user who created this project
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='projects', null=True, blank=True)
     
     # A project can include multiple narratives
     narratives = models.ManyToManyField('narratives.Narrative', related_name='projects', blank=True)

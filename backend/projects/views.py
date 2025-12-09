@@ -8,20 +8,34 @@ from projects.serializers import ProjectSerializer
 from narratives.models import Narrative
 from narratives.serializers import NarrativeSerializer
 
+
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission to only allow owners of an object to edit it.
+    """
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.owner == request.user
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows projects to be viewed or edited.
     """
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
     
     def get_queryset(self):
-        # Return all projects since we're removing user authentication
-        return Project.objects.all()
+        # Return only projects owned by the current user
+        if self.request.user.is_authenticated:
+            return Project.objects.filter(owner=self.request.user)
+        return Project.objects.none()
     
     def perform_create(self, serializer):
-        # Create without user ownership since we're removing authentication
-        serializer.save()
+        # Set the owner to the current user
+        serializer.save(owner=self.request.user)
     
     @action(detail=True, methods=['get'])
     def narratives(self, request, pk=None):

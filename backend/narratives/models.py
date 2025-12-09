@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 import uuid
 
 class Narrative(models.Model):
@@ -10,6 +11,9 @@ class Narrative(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     cover_image = models.ImageField(upload_to='narrative_covers/', blank=True, null=True)
+    
+    # Owner - the user who created this narrative
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='narratives', null=True, blank=True)
     
     # Automatically calculated fields
     start_date = models.DateField(blank=True, null=True)

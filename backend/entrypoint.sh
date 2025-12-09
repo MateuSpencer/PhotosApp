@@ -15,6 +15,12 @@ python manage.py migrate
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
+# Create superuser if env vars are set
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
+    echo "Creating superuser..."
+    python manage.py createsuperuser --noinput || echo "Superuser already exists or failed to create"
+fi
+
 # Start server
 echo "Starting Django server..."
 exec "$@"

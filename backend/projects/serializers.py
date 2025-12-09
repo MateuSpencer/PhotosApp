@@ -4,14 +4,15 @@ from projects.models import Project
 class ProjectSerializer(serializers.ModelSerializer):
     narratives_count = serializers.SerializerMethodField()
     narratives_detail = serializers.SerializerMethodField(read_only=True)
+    owner_username = serializers.CharField(source='owner.username', read_only=True)
     
     class Meta:
         model = Project
         fields = ['id', 'title', 'description', 'cover_image', 'narratives', 
                  'narratives_count', 'narratives_detail', 'public_status', 
-                 'date_created', 'date_modified']
+                 'owner', 'owner_username', 'date_created', 'date_modified']
         read_only_fields = ['id', 'narratives_count', 'narratives_detail', 
-                           'date_created', 'date_modified']
+                           'owner', 'owner_username', 'date_created', 'date_modified']
         extra_kwargs = {
             'title': {'required': True},
             'description': {'required': False},
