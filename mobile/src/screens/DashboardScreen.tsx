@@ -6,8 +6,8 @@ import { View, StyleSheet, ScrollView, RefreshControl, Dimensions } from 'react-
 import { Text, Card, Button, useTheme, ActivityIndicator, FAB, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { api } from '../../shared/api/client';
-import { Project, Narrative, MediaItem } from '../../shared/types';
+import { supabase } from '../../lib/supabase';
+import type { Narrative, Project } from '../../lib/types';
 import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -29,20 +29,20 @@ export default function DashboardScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [projects, narratives, media] = await Promise.all([
-        api.getProjects(),
-        api.getNarratives(),
-        api.getMediaItems(),
+      const [{ data: projects }, { data: narratives }, { count: mediaCount }] = await Promise.all([
+        supabase.from('projects').select('*').order('date_modified', { ascending: false }),
+        supabase.from('narratives').select('*').order('date_modified', { ascending: false }),
+        supabase.from('media_items').select('*', { count: 'exact', head: true }),
       ]);
 
       setStats({
-        projects: projects.length,
-        narratives: narratives.length,
-        media: media.length,
+        projects: projects?.length ?? 0,
+        narratives: narratives?.length ?? 0,
+        media: mediaCount ?? 0,
       });
 
-      setRecentProjects(projects.slice(0, 3));
-      setRecentNarratives(narratives.slice(0, 5));
+      setRecentProjects((projects ?? []).slice(0, 3) as Project[]);
+      setRecentNarratives((narratives ?? []).slice(0, 5) as Narrative[]);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -139,11 +139,11 @@ export default function DashboardScreen() {
               <Card
                 key={project.id}
                 style={styles.projectCard}
-                onPress={() => router.push(`/(app)/projects/${project.id}`)}
+                onPress={() => router.push(`/(app)/project/${project.id}`)}
               >
                 <Card.Title
                   title={project.title}
-                  subtitle={`${project.narratives_count} narratives`}
+                  subtitle={`${(project as any).narratives_count ?? 0} narratives`}
                   left={(props) => (
                     <MaterialCommunityIcons 
                       {...props} 
@@ -187,7 +187,7 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text variant="titleLarge">Recent Narratives</Text>
-            <Button mode="text" onPress={() => router.push('/(app)/narratives')}>
+            <Button mode="text" onPress={() => router.push('/(app)/dashboard' as any)}>
               View All
             </Button>
           </View>
@@ -202,10 +202,10 @@ export default function DashboardScreen() {
                 <Card
                   key={narrative.id}
                   style={styles.narrativeCard}
-                  onPress={() => router.push(`/(app)/narratives/${narrative.id}`)}
+                  onPress={() => router.push(`/(app)/narrative/${narrative.id}`)}
                 >
-                  {narrative.cover_image ? (
-                    <Card.Cover source={{ uri: narrative.cover_image }} style={styles.narrativeCover} />
+                  {narrative.cover_image_url ? (
+                    <Card.Cover source={{ uri: narrative.cover_image_url }} style={styles.narrativeCover} />
                   ) : (
                     <View style={[styles.narrativePlaceholder, { backgroundColor: theme.colors.surfaceVariant }]}>
                       <MaterialCommunityIcons 
@@ -218,7 +218,7 @@ export default function DashboardScreen() {
                   <Card.Content style={styles.narrativeContent}>
                     <Text variant="titleMedium" numberOfLines={1}>{narrative.title}</Text>
                     <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      {narrative.media_count} photos • {narrative.location_summary || 'No location'}
+                      {narrative.location_summary || 'No location'}
                     </Text>
                   </Card.Content>
                 </Card>
@@ -256,7 +256,7 @@ export default function DashboardScreen() {
             <Button 
               mode="outlined" 
               icon="map-marker"
-              onPress={() => router.push('/(app)/explore')}
+              onPress={() => router.push('/(app)/map')}
               style={styles.actionButton}
               contentStyle={styles.actionButtonContent}
             >

@@ -7,7 +7,7 @@ import { View, StyleSheet, Dimensions, Image, Pressable } from 'react-native';
 import { Text, useTheme, Card, IconButton, ActivityIndicator } from 'react-native-paper';
 import MapView, { Marker, Callout, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { MediaItem } from '../../shared/types';
+import { MediaItem } from '../../lib/types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -99,7 +99,7 @@ export default function MapViewComponent({
   };
 
   const getMediaThumbnail = (media: MediaItem) => {
-    return media.thumbnail_small || media.thumbnail_medium || media.file;
+    return media.thumbnail_small_url || media.thumbnail_medium_url || media.file_url;
   };
 
   if (geotaggedMedia.length === 0) {

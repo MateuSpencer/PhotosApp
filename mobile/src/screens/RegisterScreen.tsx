@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 export default function RegisterScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { register, isLoading } = useAuth();
+  const { register, loading } = useAuth();
   
   const [formData, setFormData] = useState({
     username: '',
@@ -59,23 +59,16 @@ export default function RegisterScreen() {
     if (!validate()) return;
 
     try {
-      await register(formData);
-      router.replace('/(app)');
+      await register({
+        email: formData.email,
+        password: formData.password,
+        username: formData.username,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+      });
+      router.replace('/(app)/dashboard' as any);
     } catch (err: any) {
-      const errorData = err.response?.data;
-      if (errorData) {
-        const newErrors: Record<string, string> = {};
-        Object.keys(errorData).forEach(key => {
-          if (Array.isArray(errorData[key])) {
-            newErrors[key] = errorData[key][0];
-          } else {
-            newErrors[key] = errorData[key];
-          }
-        });
-        setErrors(newErrors);
-      } else {
-        setErrors({ general: 'Registration failed. Please try again.' });
-      }
+      setErrors({ general: err.message || 'Registration failed. Please try again.' });
     }
   };
 
@@ -187,8 +180,8 @@ export default function RegisterScreen() {
           <Button
             mode="contained"
             onPress={handleRegister}
-            loading={isLoading}
-            disabled={isLoading}
+            loading={loading}
+            disabled={loading}
             style={styles.button}
             contentStyle={styles.buttonContent}
           >

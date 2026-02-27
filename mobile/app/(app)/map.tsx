@@ -7,8 +7,8 @@ import { ActivityIndicator, Text, useTheme, Chip, FAB, Portal, Modal, Card, Butt
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import NarrativesMapView from '../../src/components/MapView';
-import { apiClient } from '../../../shared/api/client';
-import type { MediaItem, Narrative } from '../../../shared/types';
+import { supabase } from '../../lib/supabase';
+import type { MediaItem, Narrative } from '../../lib/types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -18,7 +18,7 @@ export default function MapScreen() {
   
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [narratives, setNarratives] = useState<Narrative[]>([]);
-  const [selectedNarrative, setSelectedNarrative] = useState<number | null>(null);
+  const [selectedNarrative, setSelectedNarrative] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
@@ -28,21 +28,24 @@ export default function MapScreen() {
     try {
       setLoading(true);
       setError(null);
-      
-      const [mediaResponse, narrativesResponse] = await Promise.all([
-        apiClient.get<MediaItem[]>('/media/', {
-          params: selectedNarrative ? { narrative: selectedNarrative } : {},
-        }),
-        apiClient.get<Narrative[]>('/narratives/'),
+
+      let mediaQuery = supabase.from('media_items').select('*');
+      if (selectedNarrative) {
+        mediaQuery = mediaQuery.eq('narrative_id', selectedNarrative);
+      }
+
+      const [{ data: mediaData }, { data: narrativesData }] = await Promise.all([
+        mediaQuery,
+        supabase.from('narratives').select('*'),
       ]);
       
       // Filter media items with location data
-      const geoMedia = mediaResponse.data.filter(
+      const geoMedia = ((mediaData ?? []) as MediaItem[]).filter(
         item => item.latitude && item.longitude
       );
       
       setMediaItems(geoMedia);
-      setNarratives(narrativesResponse.data);
+      setNarratives((narrativesData ?? []) as Narrative[]);
     } catch (err: any) {
       console.error('Failed to fetch map data:', err);
       setError('Failed to load map data');
@@ -59,7 +62,7 @@ export default function MapScreen() {
     setSelectedMedia(mediaItem);
   };
 
-  const handleNarrativeFilter = (narrativeId: number | null) => {
+  const handleNarrativeFilter = (narrativeId: string | null) => {
     setSelectedNarrative(narrativeId);
     setShowFilters(false);
   };
@@ -100,8 +103,7 @@ export default function MapScreen() {
       {/* Map */}
       <NarrativesMapView
         mediaItems={mediaItems}
-        onMarkerPress={handleMarkerPress}
-        style={styles.map}
+        onMediaPress={handleMarkerPress}
       />
       
       {/* Filter Chip */}
@@ -179,7 +181,7 @@ export default function MapScreen() {
           {selectedMedia && (
             <Card style={{ backgroundColor: 'transparent' }} elevation={0}>
               <Image
-                source={{ uri: selectedMedia.thumbnail_medium || selectedMedia.file_url }}
+                source={{ uri: selectedMedia.thumbnail_medium_url || selectedMedia.file_url }}
                 style={styles.mediaImage}
                 contentFit="cover"
               />
@@ -188,7 +190,7 @@ export default function MapScreen() {
                   {selectedMedia.title || 'Untitled'}
                 </Text>
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  {formatDate(selectedMedia.captured_at)}
+                  {formatDate(selectedMedia.capture_date ?? undefined)}
                 </Text>
                 {selectedMedia.description && (
                   <Text 
@@ -206,8 +208,8 @@ export default function MapScreen() {
                   mode="contained"
                   onPress={() => {
                     setSelectedMedia(null);
-                    if (selectedMedia.narrative) {
-                      router.push(`/(app)/narrative/${selectedMedia.narrative}`);
+                    if (selectedMedia.narrative_id) {
+                      router.push(`/(app)/narrative/${selectedMedia.narrative_id}`);
                     }
                   }}
                 >

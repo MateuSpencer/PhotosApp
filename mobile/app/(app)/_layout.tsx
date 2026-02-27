@@ -1,15 +1,13 @@
 /**
  * App group layout - authenticated screens with Drawer navigation (Sidebar)
  */
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'expo-router/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import darkTheme from '../../src/constants/theme';
-import { Platform } from 'react-native';
+import { Platform, Dimensions } from 'react-native';
 
 export default function AppLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
         screenOptions={{
           headerShown: true, // Show header with hamburger
@@ -27,7 +25,7 @@ export default function AppLayout() {
             backgroundColor: darkTheme.colors.surface,
           },
           headerTintColor: 'white',
-          drawerType: Platform.OS === 'web' && window.innerWidth >= 900 ? 'permanent' : 'front',
+          drawerType: Platform.OS === 'web' && Dimensions.get('window').width >= 900 ? 'permanent' : 'front',
         }}
       >
         <Drawer.Screen
@@ -98,6 +96,5 @@ export default function AppLayout() {
           }}
         />
       </Drawer>
-    </GestureHandlerRootView>
   );
 }

@@ -9,8 +9,8 @@ import {
 } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { api } from '../../shared/api/client';
-import { Project, Narrative } from '../../shared/types';
+import { supabase } from '../../lib/supabase';
+import type { Project, Narrative } from '../../lib/types';
 
 const { width } = Dimensions.get('window');
 
@@ -31,12 +31,23 @@ export default function ProjectDetailScreen() {
     if (!id) return;
     
     try {
-      const [projectData, narrativesData] = await Promise.all([
-        api.getProject(id),
-        api.getProjectNarratives(id),
+      const [{ data: projectData }, { data: pnData }] = await Promise.all([
+        supabase.from('projects').select('*').eq('id', id).single(),
+        supabase.from('project_narratives').select('narrative_id').eq('project_id', id),
       ]);
-      setProject(projectData);
-      setNarratives(narrativesData);
+      setProject(projectData as Project | null);
+
+      // Fetch full narrative rows for the linked IDs
+      const narrativeIds = (pnData ?? []).map((pn: any) => pn.narrative_id);
+      if (narrativeIds.length > 0) {
+        const { data: narrativesData } = await supabase
+          .from('narratives')
+          .select('*')
+          .in('id', narrativeIds);
+        setNarratives((narrativesData ?? []) as Narrative[]);
+      } else {
+        setNarratives([]);
+      }
     } catch (error) {
       console.error('Error loading project:', error);
     } finally {
@@ -59,7 +70,8 @@ export default function ProjectDetailScreen() {
     
     setIsDeleting(true);
     try {
-      await api.deleteProject(id);
+      const { error } = await supabase.from('projects').delete().eq('id', id);
+      if (error) throw error;
       router.back();
     } catch (error) {
       console.error('Error deleting project:', error);
@@ -70,7 +82,7 @@ export default function ProjectDetailScreen() {
   };
 
   const getTotalMedia = () => {
-    return narratives.reduce((sum, n) => sum + n.media_count, 0);
+    return 0; // TODO: count media across narratives via supabase
   };
 
   if (isLoading) {
@@ -102,8 +114,8 @@ export default function ProjectDetailScreen() {
       >
         {/* Header with cover image */}
         <View style={styles.header}>
-          {project.cover_image ? (
-            <Image source={{ uri: project.cover_image }} style={styles.coverImage} />
+          {project.cover_image_url ? (
+            <Image source={{ uri: project.cover_image_url }} style={styles.coverImage} />
           ) : (
             <View style={[styles.coverPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]}>
               <MaterialCommunityIcons 
@@ -196,7 +208,7 @@ export default function ProjectDetailScreen() {
               <Button 
                 mode="contained-tonal" 
                 icon="plus"
-                onPress={() => router.push('/(app)/narratives/create')}
+                onPress={() => router.push('/(app)/upload')}
               >
                 Add
               </Button>
@@ -207,15 +219,15 @@ export default function ProjectDetailScreen() {
                 <Card
                   key={narrative.id}
                   style={styles.narrativeCard}
-                  onPress={() => router.push(`/(app)/narratives/${narrative.id}`)}
+                  onPress={() => router.push(`/(app)/narrative/${narrative.id}` as any)}
                 >
                   <Card.Title
                     title={narrative.title}
-                    subtitle={`${narrative.media_count} photos • ${narrative.location_summary || 'No location'}`}
+                    subtitle={`${narrative.location_summary || 'No location'}`}
                     left={(props) => 
-                      narrative.cover_image ? (
+                      narrative.cover_image_url ? (
                         <Image 
-                          source={{ uri: narrative.cover_image }} 
+                          source={{ uri: narrative.cover_image_url }} 
                           style={styles.narrativeThumb}
                         />
                       ) : (
@@ -232,7 +244,7 @@ export default function ProjectDetailScreen() {
                       <IconButton
                         {...props}
                         icon="chevron-right"
-                        onPress={() => router.push(`/(app)/narratives/${narrative.id}`)}
+                        onPress={() => router.push(`/(app)/narrative/${narrative.id}`)}
                       />
                     )}
                   />
@@ -251,7 +263,7 @@ export default function ProjectDetailScreen() {
                   </Text>
                   <Button 
                     mode="contained" 
-                    onPress={() => router.push('/(app)/narratives/create')}
+                    onPress={() => router.push('/(app)/upload')}
                     style={{ marginTop: 16 }}
                   >
                     Create Narrative

@@ -1,107 +1,75 @@
-# Running Narratives App Locally
+# Local Development Guide
 
-This guide explains how to run the Narratives app with the backend in Docker and the frontend running locally.
+> Last updated: February 2026
 
-## Prerequisites
+## Architecture Overview
 
-Before you begin, make sure you have the following installed on your system:
+PhotosApp has two frontends and two backends (one legacy):
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
-- [Node.js](https://nodejs.org/) (version 16 or higher)
-- [npm](https://www.npmjs.com/) (comes with Node.js)
+| Component | How to Run | Port |
+|-----------|-----------|------|
+| **Web app** (Next.js) | `cd web && npm run dev` | 3000 |
+| **Mobile app** (Expo) | `cd mobile && npx expo start` | 8081 |
+| **Supabase** (cloud) | Always running | N/A |
+| **Django backend** (legacy) | `docker-compose up -d` | 8000 |
 
-## Setup Instructions
+The **web app** only needs Supabase — no local backend required.
+The **mobile app** currently requires the Django backend via Docker.
 
-### 1. Start the Backend (Django) in Docker
-
-1. Navigate to the project root directory (where the `docker-compose.yml` file is located).
-
-2. Start the backend services (PostgreSQL and Django):
-
-```bash
-docker-compose up -d
-```
-
-This command will:
-- Start the PostgreSQL database
-- Start the Django backend server
-- The backend API will be available at http://localhost:8000/api/
-
-### 2. Run the Frontend (React) Locally
-
-1. Navigate to the frontend directory:
+## Running the Web App
 
 ```bash
-cd frontend
-```
-
-2. Install dependencies:
-
-```bash
+cd web
 npm install
-```
-
-3. Start the development server:
-
-```bash
 npm run dev
 ```
 
-The frontend will be available at http://localhost:3000
+Requires `web/.env.local` with Supabase credentials. See [environment_setup.md](environment_setup.md).
 
-## Authentication
+## Running the Mobile App
 
-The application uses Django Allauth for authentication. The following endpoints are available:
-
-- Register: http://localhost:8000/api/auth/registration/
-- Login: http://localhost:8000/api/auth/login/
-- Logout: http://localhost:8000/api/auth/logout/
-- User details: http://localhost:8000/api/auth/user/
-
-## Development Workflow
-
-- The frontend proxy is configured to forward API requests to the backend
-- Make changes to the frontend code and they will be automatically reflected
-- Backend changes require restarting the Docker container:
-  ```bash
-  docker-compose restart backend
-  ```
-
-## Troubleshooting
-
-### Backend Issues
-
-If you encounter issues with the backend:
-
-1. Check the Docker logs:
 ```bash
-docker-compose logs backend
+# Start legacy backend (required for mobile, for now)
+docker-compose up -d
+
+# In another terminal
+cd mobile
+npm install
+npx expo start
 ```
 
-2. Ensure the database migrations have run:
+- Press `a` for Android, `i` for iOS, or scan QR with Expo Go
+- The mobile app connects to `http://localhost:8000/api` by default
+- For physical devices, update the `baseURL` in `mobile/shared/api/client.ts` to your machine's LAN IP
+
+## Common Tasks
+
+### Reset the Django database
+```bash
+docker-compose down -v
+docker-compose up -d
+```
+
+### View Django logs
+```bash
+docker-compose logs -f backend
+```
+
+### Run Django migrations manually
 ```bash
 docker-compose exec backend python manage.py migrate
 ```
 
-### Frontend Issues
-
-If you encounter issues with the frontend:
-
-1. Check that the proxy is correctly set up in `package.json`
-2. Ensure the backend is running and accessible at http://localhost:8000
-3. Clear your browser cache and local storage
-
-## Stopping the Application
-
-To stop all services:
-
+### Update Supabase types
 ```bash
-docker-compose down
+npx supabase gen types typescript --project-id YOUR_REF > shared/supabase/database.types.ts
 ```
 
-To stop only the backend while continuing frontend development:
+## Troubleshooting
 
-```bash
-docker-compose stop
-```
+| Problem | Solution |
+|---------|----------|
+| Web app can't connect to Supabase | Check `web/.env.local` credentials |
+| Mobile app shows network error | Ensure Docker is running: `docker-compose ps` |
+| Mobile app on physical device can't reach backend | Use LAN IP instead of `localhost` in API client |
+| Port 8000 already in use | Stop conflicting process or change port in `docker-compose.yml` |

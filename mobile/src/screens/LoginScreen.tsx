@@ -10,25 +10,25 @@ import { useRouter } from 'expo-router';
 export default function LoginScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { login, isLoading } = useAuth();
+  const { login, loading } = useAuth();
   
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim()) {
       setError('Please fill in all fields');
       return;
     }
 
     setError('');
     try {
-      await login(username, password);
-      router.replace('/(app)');
+      await login(email, password);
+      router.replace('/(app)/dashboard' as any);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
+      setError(err.message || 'Login failed. Please check your credentials.');
     }
   };
 
@@ -50,14 +50,15 @@ export default function LoginScreen() {
 
         <View style={styles.form}>
           <TextInput
-            label="Username"
-            value={username}
-            onChangeText={setUsername}
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
             mode="outlined"
             autoCapitalize="none"
             autoCorrect={false}
+            keyboardType="email-address"
             style={styles.input}
-            left={<TextInput.Icon icon="account" />}
+            left={<TextInput.Icon icon="email" />}
           />
 
           <TextInput
@@ -85,8 +86,8 @@ export default function LoginScreen() {
           <Button
             mode="contained"
             onPress={handleLogin}
-            loading={isLoading}
-            disabled={isLoading}
+            loading={loading}
+            disabled={loading}
             style={styles.button}
             contentStyle={styles.buttonContent}
           >

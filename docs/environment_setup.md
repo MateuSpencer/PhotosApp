@@ -1,57 +1,81 @@
 # Development Environment Setup
 
-## Backend Setup (Django/PostgreSQL)
+> Last updated: February 2026
 
-1. Created Python virtual environment:
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) 18+
+- A [Supabase](https://supabase.com) project (free tier works)
+- (Optional) Python 3.11+ — only if running the legacy Django backend for mobile development
+- (Optional) Docker — only for the legacy Django backend
+
+## Web App Setup (Next.js + Supabase)
+
+### 1. Set up Supabase
+
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard)
+2. Go to **SQL Editor** and run the migration file: `supabase/migrations/00001_initial_schema.sql`
+3. Note your **Project URL** and **Anon Key** from **Settings → API**
+
+### 2. Configure environment
+
 ```bash
-python3 -m venv backend/venv
+cd web
+cp .env.local.example .env.local
 ```
 
-2. Installed backend dependencies:
-```bash
-pip install django djangorestframework django-cors-headers psycopg2-binary pillow exifread
+Edit `web/.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-3. Created Django project and apps:
+### 3. Install and run
+
 ```bash
-django-admin startproject narratives_project .
-python manage.py startapp users
-python manage.py startapp narratives
-python manage.py startapp media
-python manage.py startapp locations
-python manage.py startapp api
+cd web
+npm install
+npm run dev
 ```
 
-## Frontend Setup (React)
+Open http://localhost:3000.
 
-1. Created React application:
+## Mobile App Setup (Expo)
+
+### 1. Install dependencies
+
 ```bash
-npx create-react-app frontend
+cd mobile
+npm install
 ```
 
-2. Installed frontend dependencies:
+### 2. Start Expo
+
 ```bash
-npm install axios three react-router-dom @mui/material @mui/icons-material @emotion/react @emotion/styled
+npx expo start
 ```
 
-## Running the Application
+Press `a` for Android emulator, `i` for iOS simulator, or scan the QR code with Expo Go.
 
-### Backend
+**Note:** The mobile app currently requires the legacy Django backend running on `localhost:8000`. See the Docker guide for instructions. This will be migrated to Supabase.
+
+## Legacy Django Backend (for mobile only)
+
+Only needed if developing the mobile app before the Supabase migration is complete.
+
 ```bash
-cd backend
-source venv/bin/activate
-python manage.py runserver
+# From project root
+docker-compose up -d
 ```
 
-### Frontend
+This starts PostgreSQL on port 5432 and Django on port 8000. See [docker_guide.md](docker_guide.md) for details.
+
+## Supabase Database Types
+
+To regenerate TypeScript types from the live database:
+
 ```bash
-cd frontend
-npm start
+npx supabase gen types typescript --project-id YOUR_PROJECT_REF > shared/supabase/database.types.ts
 ```
 
-## Next Steps
-- Configure Django settings
-- Set up PostgreSQL database
-- Implement backend models and API endpoints
-- Develop frontend components
-- Integrate 3D globe and timeline
+Copy the output to `web/lib/supabase/database.types.ts` as well (until shared code deduplication is done).

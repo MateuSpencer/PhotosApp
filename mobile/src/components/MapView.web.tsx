@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, useTheme, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { MediaItem } from '../../shared/types';
+import { MediaItem } from '../../lib/types';
 
 interface MapViewComponentProps {
     mediaItems: MediaItem[];

@@ -1,165 +1,141 @@
 /**
- * Authentication Context for React Native
- * Manages user authentication state and token storage
+ * Authentication Context – powered by Supabase Auth.
+ * Works on both native (Expo) and web platforms.
  */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { api, TokenStorage } from '../../shared/api/client';
-import { User, AuthTokens, LoginResponse, RegisterRequest, RegisterResponse } from '../../shared/types';
+import { supabase } from '../../lib/supabase';
+import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import type { Profile } from '../../lib/types';
 
-// Token storage keys
-const ACCESS_TOKEN_KEY = 'narratives_access_token';
-const REFRESH_TOKEN_KEY = 'narratives_refresh_token';
-const USER_KEY = 'narratives_user';
-
-// Platform-aware storage helper
-// expo-secure-store doesn't work on web, so we use localStorage for web
-const storage = {
-  async getItem(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
-    }
-    return await SecureStore.getItemAsync(key);
-  },
-  async setItem(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-      return;
-    }
-    await SecureStore.setItemAsync(key, value);
-  },
-  async deleteItem(key: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem(key);
-      return;
-    }
-    await SecureStore.deleteItemAsync(key);
-  },
-};
-
-// Implement TokenStorage using platform-aware storage
-const secureTokenStorage: TokenStorage = {
-  async getAccessToken(): Promise<string | null> {
-    return await storage.getItem(ACCESS_TOKEN_KEY);
-  },
-  async getRefreshToken(): Promise<string | null> {
-    return await storage.getItem(REFRESH_TOKEN_KEY);
-  },
-  async setTokens(tokens: AuthTokens): Promise<void> {
-    await storage.setItem(ACCESS_TOKEN_KEY, tokens.access);
-    await storage.setItem(REFRESH_TOKEN_KEY, tokens.refresh);
-  },
-  async clearTokens(): Promise<void> {
-    await storage.deleteItem(ACCESS_TOKEN_KEY);
-    await storage.deleteItem(REFRESH_TOKEN_KEY);
-  },
-};
+// Lightweight user object exposed to the rest of the app
+export interface AppUser {
+  id: string;
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
+  session: Session | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: { email: string; password: string; username: string; first_name?: string; last_name?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/** Map a Supabase auth user + profile row into our lightweight AppUser. */
+function toAppUser(authUser: SupabaseUser, profile?: Profile | null): AppUser {
+  return {
+    id: authUser.id,
+    email: authUser.email ?? '',
+    username: profile?.username ?? authUser.email ?? '',
+    first_name: profile?.first_name ?? '',
+    last_name: profile?.last_name ?? '',
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ----- Bootstrap session on mount & listen for changes -----
   useEffect(() => {
-    // Configure API client with token storage
-    api.setTokenStorage(secureTokenStorage);
+    // 1. Get existing session
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      setSession(s);
+      if (s?.user) {
+        await loadProfile(s.user);
+      }
+      setLoading(false);
+    });
 
-    // Check for existing session on mount
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const token = await storage.getItem(ACCESS_TOKEN_KEY);
-      const storedUser = await storage.getItem(USER_KEY);
-
-      if (token && storedUser) {
-        setUser(JSON.parse(storedUser));
-        // Verify token is still valid by fetching profile
-        try {
-          const profile = await api.getProfile();
-          setUser({
-            id: profile.user.id,
-            username: profile.username,
-            email: profile.email,
-            first_name: profile.first_name,
-            last_name: profile.last_name,
-          });
-        } catch (error) {
-          // Token invalid, clear storage
-          await secureTokenStorage.clearTokens();
-          await storage.deleteItem(USER_KEY);
+    // 2. Subscribe to auth changes (login, logout, token refresh, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, s) => {
+        setSession(s);
+        if (s?.user) {
+          await loadProfile(s.user);
+        } else {
           setUser(null);
         }
-      }
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-    } finally {
-      setLoading(false);
+      },
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  /** Fetch the profile row and merge with auth user. */
+  const loadProfile = async (authUser: SupabaseUser) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+      setUser(toAppUser(authUser, profile as Profile | null));
+    } catch {
+      // Profile may not exist yet (e.g. right after sign-up before trigger fires)
+      setUser(toAppUser(authUser, null));
     }
   };
 
-  const login = async (username: string, password: string) => {
-    setLoading(true);
-    try {
-      const response = await api.login(username, password);
-      setUser(response.user);
-      await storage.setItem(USER_KEY, JSON.stringify(response.user));
-    } finally {
-      setLoading(false);
-    }
+  // ----- Auth actions -----
+
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
   };
 
-  const register = async (data: RegisterRequest) => {
-    setLoading(true);
-    try {
-      const response = await api.register(data);
-      setUser(response.user);
-      await storage.setItem(USER_KEY, JSON.stringify(response.user));
-    } finally {
-      setLoading(false);
+  const register = async (data: {
+    email: string;
+    password: string;
+    username: string;
+    first_name?: string;
+    last_name?: string;
+  }) => {
+    const { data: authData, error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          username: data.username,
+          first_name: data.first_name ?? '',
+          last_name: data.last_name ?? '',
+        },
+      },
+    });
+    if (error) throw error;
+
+    // Upsert the profile row so it exists immediately
+    if (authData.user) {
+      await supabase.from('profiles').upsert({
+        id: authData.user.id,
+        username: data.username,
+        email: data.email,
+        first_name: data.first_name ?? '',
+        last_name: data.last_name ?? '',
+      });
     }
   };
 
   const logout = async () => {
-    setLoading(true);
-    try {
-      await api.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      await storage.deleteItem(USER_KEY);
-      setUser(null);
-      setLoading(false);
-    }
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   const refreshUser = async () => {
-    try {
-      const profile = await api.getProfile();
-      const updatedUser = {
-        id: profile.user.id,
-        username: profile.username,
-        email: profile.email,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-      };
-      setUser(updatedUser);
-      await storage.setItem(USER_KEY, JSON.stringify(updatedUser));
-    } catch (error) {
-      console.error('Error refreshing user:', error);
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      await loadProfile(authUser);
     }
   };
 
@@ -167,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        session,
         loading,
         isAuthenticated: !!user,
         login,
