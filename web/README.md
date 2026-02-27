@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PhotosApp — Web
+
+The Next.js web frontend for PhotosApp, deployed on [Vercel](https://vercel.com) with [Supabase](https://supabase.com) as the backend.
 
 ## Getting Started
 
-First, run the development server:
+### 1. Configure environment
+
+```bash
+cp .env.local.example .env.local
+```
+
+Edit `.env.local` with your Supabase project credentials:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+> You can find these values in your Supabase dashboard under **Settings → API**.
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Initialize the database
+
+Before running the app for the first time, go to your Supabase project's **SQL Editor** and run the migration:
+
+```
+../supabase/migrations/00001_initial_schema.sql
+```
+
+This creates all the required tables, indexes, RLS policies, and triggers.
+
+### 4. Run the development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 5. Build for production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+web/
+├── app/
+│   ├── page.tsx              # Landing page
+│   ├── login/page.tsx        # Login page
+│   ├── register/page.tsx     # Registration page
+│   ├── dashboard/page.tsx    # Main dashboard (protected)
+│   └── auth/callback/        # OAuth callback handler
+├── lib/supabase/
+│   ├── client.ts             # Browser Supabase client
+│   ├── server.ts             # Server-side Supabase client
+│   ├── middleware.ts         # Auth session middleware
+│   └── database.types.ts     # TypeScript types for all tables
+├── middleware.ts              # Next.js middleware (auth guard)
+└── .env.local.example         # Environment variable template
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy to Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the [deployment guide](../docs/vercel_supabase_deployment.md) for full instructions.
