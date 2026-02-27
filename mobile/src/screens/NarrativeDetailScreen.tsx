@@ -12,8 +12,8 @@ import {
 } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { api } from '../../shared/api/client';
-import { Narrative, MediaItem, MediaDay } from '../../shared/types';
+import { supabase } from '../../lib/supabase';
+import type { Narrative, MediaItem, MediaDay } from '../../lib/types';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -38,14 +38,25 @@ export default function NarrativeDetailScreen() {
     if (!id) return;
     
     try {
-      const [narrativeData, mediaData, daysData] = await Promise.all([
-        api.getNarrative(id),
-        api.getNarrativeMedia(id),
-        api.getNarrativeDays(id),
+      const [{ data: narrativeData }, { data: mediaData }] = await Promise.all([
+        supabase.from('narratives').select('*').eq('id', id).single(),
+        supabase.from('media_items').select('*').eq('narrative_id', id).order('capture_date', { ascending: true }),
       ]);
-      setNarrative(narrativeData);
-      setMediaItems(mediaData);
-      setMediaDays(daysData);
+      setNarrative(narrativeData as Narrative | null);
+      const items = (mediaData ?? []) as MediaItem[];
+      setMediaItems(items);
+
+      // Build mediaDays client-side
+      const dayMap = new Map<string, MediaItem[]>();
+      items.forEach(item => {
+        const date = item.capture_date ? item.capture_date.split('T')[0] : 'unknown';
+        if (!dayMap.has(date)) dayMap.set(date, []);
+        dayMap.get(date)!.push(item);
+      });
+      const days: MediaDay[] = Array.from(dayMap.entries()).map(([date, items]) => ({
+        date, media_items: items, count: items.length,
+      }));
+      setMediaDays(days);
     } catch (error) {
       console.error('Error loading narrative:', error);
     } finally {
@@ -64,7 +75,7 @@ export default function NarrativeDetailScreen() {
   };
 
   const getMediaThumbnail = (media: MediaItem) => {
-    return media.thumbnail_medium || media.thumbnail_small || media.file;
+    return media.thumbnail_medium_url || media.thumbnail_small_url || media.file_url;
   };
 
   const renderGridItem = ({ item }: { item: MediaItem }) => (
@@ -138,8 +149,8 @@ export default function NarrativeDetailScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
-        {narrative.cover_image ? (
-          <Image source={{ uri: narrative.cover_image }} style={styles.coverImage} />
+        {narrative.cover_image_url ? (
+          <Image source={{ uri: narrative.cover_image_url }} style={styles.coverImage} />
         ) : (
           <View style={[styles.coverPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]}>
             <MaterialCommunityIcons name="image" size={64} color={theme.colors.onSurfaceVariant} />
@@ -176,7 +187,7 @@ export default function NarrativeDetailScreen() {
               {narrative.title}
             </Text>
             <Text variant="bodyMedium" style={styles.headerSubtitle}>
-              {narrative.media_count} photos • {narrative.location_summary || 'No location'}
+              {narrative.location_summary || 'No location'}
             </Text>
           </View>
         </View>
@@ -267,7 +278,7 @@ export default function NarrativeDetailScreen() {
           {selectedMedia && (
             <View style={styles.mediaModalContent}>
               <Image 
-                source={{ uri: selectedMedia.file }} 
+                source={{ uri: selectedMedia.file_url }} 
                 style={styles.mediaModalImage}
                 resizeMode="contain"
               />

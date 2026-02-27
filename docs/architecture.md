@@ -1,199 +1,119 @@
-# Narratives App Architecture
+# PhotosApp Architecture
+
+> Last updated: February 2026
 
 ## Overview
 
-Narratives is a web application that helps users organize and relive their photos through interactive storytelling. The application uses a Django/PostgreSQL backend and a React frontend. The core features include a 3D globe visualization, timeline navigation, image uploads with metadata extraction, and user authentication.
+PhotosApp (originally "Narratives") is a photo storytelling application that lets users organize photos into narratives, map journeys, and tell stories through images. The project runs across three platforms with a shared backend:
 
-## System Architecture
+| Platform | Technology | Status |
+|----------|-----------|--------|
+| Web | Next.js 16, React 19, Tailwind CSS | Active — deployed to Vercel |
+| Mobile | React Native, Expo 52, React Native Paper | Active — in development |
+| Backend | Supabase (PostgreSQL, Auth, Storage) | Active — primary backend |
+| Legacy Backend | Django REST Framework + PostgreSQL | Legacy — mobile still depends on it |
 
-### High-Level Architecture
+## System Architecture (Current)
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│  React Frontend │◄────┤  Django API     │◄────┤  PostgreSQL     │
-│                 │     │                 │     │  Database       │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        ▲                       ▲                       ▲
-        │                       │                       │
-        ▼                       ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  3D Globe       │     │  Media Storage  │     │  External APIs  │
-│  Visualization  │     │  (File System/  │     │  (Google Photos,│
-│                 │     │   Cloud Storage)│     │   iCloud, etc.) │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
+┌─────────────────────┐
+│   Next.js Web App   │ ──── Vercel (Production)
+│   (app/ directory)  │
+└────────┬────────────┘
+         │ Direct queries via @supabase/ssr
+         ▼
+┌─────────────────────┐
+│      Supabase       │
+│  ┌───────────────┐  │
+│  │  PostgreSQL   │  │
+│  │  (RLS)        │  │
+│  ├───────────────┤  │
+│  │  Auth         │  │
+│  ├───────────────┤  │
+│  │  Storage      │  │
+│  └───────────────┘  │
+└─────────────────────┘
+         ▲
+         │ (planned migration)
+         │
+┌─────────────────────┐     ┌──────────────────┐
+│  Expo Mobile App    │ ──► │  Django REST API  │ ◄── Docker (dev only)
+│  (React Native)     │     │  (LEGACY)         │
+└─────────────────────┘     └──────────────────┘
 ```
 
-## Backend Architecture (Django)
+**Key point:** The web app talks directly to Supabase. The mobile app still talks to the legacy Django backend via REST/JWT. The highest-priority migration task is moving mobile to Supabase.
 
-### Django Apps Structure
+## Directory Structure
 
-1. **users**: Handles user authentication, registration, and profile management
-2. **narratives**: Manages narrative projects and their metadata
-3. **media**: Handles media uploads, storage, and metadata extraction
-4. **locations**: Manages geolocation data and mapping functionality
-5. **api**: Provides RESTful API endpoints for frontend communication
+```
+PhotosApp/
+├── web/                    # Next.js web app (deployed on Vercel)
+│   ├── app/                # App Router: pages, layouts, auth
+│   │   ├── auth/callback/  # Supabase OAuth callback
+│   │   ├── dashboard/      # Main dashboard (read-only currently)
+│   │   ├── login/          # Email/password login
+│   │   └── register/       # Registration
+│   ├── lib/supabase/       # Supabase clients (browser, server, middleware)
+│   └── middleware.ts       # Auth session refresh middleware
+│
+├── mobile/                 # Expo / React Native mobile app
+│   ├── app/                # Expo Router file-based routing
+│   │   ├── (app)/          # Authenticated screens (drawer navigation)
+│   │   └── (auth)/         # Login / Register screens
+│   ├── src/
+│   │   ├── screens/        # Screen components
+│   │   ├── components/     # Reusable components (MapView, etc.)
+│   │   ├── contexts/       # AuthContext (JWT-based, Django)
+│   │   └── constants/      # Theme, colors
+│   └── shared/             # LOCAL COPY of shared code (see duplication note)
+│
+├── shared/                 # Root shared code (partially dead)
+│   ├── api/client.ts       # Axios client → Django (UNUSED)
+│   ├── supabase/           # Supabase client factory + database types
+│   └── types/index.ts      # Django-shaped types (OUTDATED)
+│
+├── backend/                # Django REST Framework (LEGACY)
+│   ├── narratives_project/ # Django settings, URLs
+│   ├── media/              # Media upload, EXIF, thumbnails
+│   ├── narratives/         # Narrative CRUD
+│   ├── locations/          # Location management
+│   ├── projects/           # Project grouping
+│   └── users/              # Auth, profiles
+│
+├── supabase/
+│   └── migrations/         # SQL schema (source of truth for DB)
+│
+└── docs/                   # Documentation
+```
 
-### Data Models
+## Database Schema
 
-#### User Model (extends Django's built-in User)
-- Profile information
-- Preferences
-- Authentication tokens for external services
+Defined in `supabase/migrations/00001_initial_schema.sql`. All tables have Row Level Security (RLS) enabled.
 
-#### Narrative Model
-- Title
-- Description
-- Created date
-- Modified date
-- Owner (Foreign Key to User)
-- Cover image
+| Table | Description | RLS |
+|-------|------------|-----|
+| `profiles` | User profiles (auto-created on auth signup) | Owner-only |
+| `narratives` | Photo story collections | Owner-only |
+| `media_items` | Photos/videos with EXIF metadata | Owner-only |
+| `notes` | Text notes attached to media/narratives | Owner-only |
+| `locations` | Named locations | Authenticated read, owner write |
+| `location_media` | Junction: locations ↔ media items | Via parent RLS |
+| `projects` | Groups of narratives | Owner + public read for published |
+| `project_narratives` | Junction: projects ↔ narratives | Via parent RLS |
 
-#### Media Model
-- File path/URL
-- Media type (photo/video)
-- Upload date
-- Capture date (from EXIF)
-- Latitude (from EXIF)
-- Longitude (from EXIF)
-- Narrative (Foreign Key to Narrative)
-- Owner (Foreign Key to User)
-- Notes/Caption
-- Missing metadata flag
+## Authentication
 
-#### Note Model
-- Content
-- Created date
-- Modified date
-- Associated media (Foreign Key to Media, optional)
-- Associated day (Date, optional)
-- Associated narrative (Foreign Key to Narrative)
+| Platform | Method | Provider |
+|----------|--------|----------|
+| Web | Supabase Auth (email/password) | `@supabase/ssr` |
+| Mobile | Django JWT (SimpleJWT) | Axios + SecureStore |
 
-### API Endpoints
+The web app uses Supabase Auth with server-side session management via middleware. The mobile app uses Django's JWT token pair (access + refresh) stored in Expo SecureStore (native) or localStorage (web).
 
-#### Authentication
-- `/api/auth/register/` - User registration
-- `/api/auth/login/` - User login
-- `/api/auth/logout/` - User logout
-- `/api/auth/profile/` - User profile management
+## Known Architectural Debt
 
-#### Narratives
-- `/api/narratives/` - List and create narratives
-- `/api/narratives/<id>/` - Retrieve, update, delete narrative
-- `/api/narratives/<id>/media/` - List media in narrative
-- `/api/narratives/<id>/notes/` - List notes in narrative
-
-#### Media
-- `/api/media/` - List and upload media
-- `/api/media/<id>/` - Retrieve, update, delete media
-- `/api/media/<id>/metadata/` - Update media metadata
-- `/api/media/batch-upload/` - Upload multiple media files
-
-#### External Services
-- `/api/services/google-photos/auth/` - Authenticate with Google Photos
-- `/api/services/icloud/auth/` - Authenticate with iCloud
-- `/api/services/onedrive/auth/` - Authenticate with OneDrive
-- `/api/services/<service>/import/` - Import media from external service
-
-## Frontend Architecture (React)
-
-### Component Structure
-
-#### Core Components
-- `App` - Main application component
-- `AuthProvider` - Authentication context provider
-- `Router` - Application routing
-- `Layout` - Main layout with sidebar and content area
-
-#### Page Components
-- `LoginPage` - User login
-- `RegisterPage` - User registration
-- `DashboardPage` - User dashboard
-- `ExplorePage` - Globe and timeline view
-- `ProjectsPage` - List of user's narratives
-- `NarrativeDetailPage` - Single narrative view
-- `PresentationPage` - Full-screen presentation mode
-
-#### Feature Components
-- `Globe` - 3D globe visualization
-- `Timeline` - Interactive timeline
-- `MediaUploader` - Media upload interface
-- `MediaGrid` - Grid view of media
-- `Sidebar` - Navigation sidebar
-- `NoteEditor` - Interface for adding/editing notes
-- `MetadataEditor` - Interface for editing media metadata
-
-### State Management
-- React Context API for global state
-- Redux for complex state management (optional)
-- React Query for API data fetching and caching
-
-### Data Flow
-
-1. User authenticates through the login page
-2. Application fetches user's narratives and displays them
-3. User selects or creates a narrative
-4. Application loads narrative data, including media and notes
-5. User interacts with the globe and timeline to explore media
-6. User can upload new media, which is processed by the backend
-7. User can add notes to media, days, or the entire narrative
-8. User can enter presentation mode to view the narrative as a slideshow
-
-## Integration Points
-
-### 3D Globe Visualization
-- Using Three.js for 3D rendering
-- Globe component receives media data with coordinates
-- Media thumbnails are displayed at their respective locations
-- Globe animates between locations during timeline navigation
-
-### Timeline Component
-- Custom React component for timeline visualization
-- Displays media chronologically
-- Allows scrubbing through time
-- Syncs with globe view
-
-### Media Upload and Processing
-- Frontend uploads media files to Django backend
-- Backend extracts EXIF metadata (timestamp, GPS coordinates)
-- Backend stores media files and metadata
-- Frontend displays media in globe and timeline views
-
-### External Service Integration
-- OAuth authentication with external services
-- API calls to fetch media from external services
-- Processing and importing external media into the application
-
-## Security Considerations
-
-1. User authentication using Django's built-in authentication system
-2. JWT tokens for API authentication
-3. CSRF protection for form submissions
-4. Secure storage of external service credentials
-5. Media access control based on ownership
-6. Input validation and sanitization
-
-## Scalability Considerations
-
-1. Media storage optimization
-   - Thumbnail generation
-   - Progressive loading
-   - Potential CDN integration for media delivery
-
-2. Database optimization
-   - Indexing for frequently queried fields
-   - Pagination for large datasets
-   - Caching for frequently accessed data
-
-3. API performance
-   - Endpoint optimization
-   - Rate limiting
-   - Batch operations for multiple media files
-
-## Future Extensibility
-
-1. Support for additional external services
-2. Advanced media processing (facial recognition, object detection)
-3. Social features (sharing, collaboration)
-4. Mobile app integration
-5. Offline support
+1. **Dual backend** — Django and Supabase serve the same data models. Mobile must be migrated to Supabase.
+2. **Triple-duplicated shared code** — `shared/`, `mobile/shared/`, and `web/lib/supabase/` contain overlapping but divergent copies.
+3. **Two incompatible type systems** — Django-shaped types (numeric IDs, `file`, `owner`) vs Supabase types (UUIDs, `file_url`, `owner_id`).
+4. **No monorepo tooling** — No npm workspaces, no shared package resolution. Each app manages its own dependencies.

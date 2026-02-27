@@ -1,87 +1,61 @@
-# Narratives App - User Guide
+# PhotosApp — User Guide
 
-## Overview
+> Last updated: February 2026
 
-Narratives is an interactive storytelling application that helps you organize and relive your photos through a 3D globe visualization and timeline navigation. This guide will help you get started with the application.
+## What is PhotosApp?
 
-## Accessing the Application
+PhotosApp (originally "Narratives") is a photo storytelling app that lets you organize your photos into narratives, map your journeys on a globe, and group narratives into projects.
 
-The application is currently deployed and can be accessed at the following URLs:
+## Getting Started (Web)
 
-- **Frontend**: [https://3001-i9c0v8ew13i9li6cfo97w-4bf02c2b.manusvm.computer](https://3001-i9c0v8ew13i9li6cfo97w-4bf02c2b.manusvm.computer)
-- **Backend API**: [https://8000-i9c0v8ew13i9li6cfo97w-4bf02c2b.manusvm.computer](https://8000-i9c0v8ew13i9li6cfo97w-4bf02c2b.manusvm.computer)
+1. Go to the deployed URL (or http://localhost:3000 for local dev)
+2. Click **Create Account** and register with your email
+3. You'll be taken to your **Dashboard**
 
-## Getting Started
+## Features
 
-1. Open the frontend URL in your browser
-2. Use the following credentials to log in:
-   - Username: any username
-   - Password: any password
-   (Note: In this prototype, authentication is simulated)
+### Dashboard
+- View all your narratives and projects at a glance
+- See cover images, descriptions, and media counts
+- *(Coming soon: create/edit narratives and projects from the dashboard)*
 
-## Main Features
+### Narratives
+A narrative is a collection of photos organized chronologically — think of it as a trip, a day, or any photo story.
+- Each narrative has a title, description, date range, and cover image
+- Photos are organized by day within a narrative
+- You can add text notes to any day or photo
 
-### Navigation
+### Projects
+A project groups multiple narratives together — for example, "2025 Travel" might contain narratives for each trip.
+- Projects have a title, description, and public/private status
+- A project can contain any number of narratives
 
-- **Explore**: View your photos on a 3D globe and navigate through time
-- **Projects**: Manage your narratives (collections of photos)
-- **People**: Future feature for facial recognition (not implemented in prototype)
+### Media
+- Photos carry EXIF metadata: capture date, GPS coordinates, camera info
+- Thumbnails are generated automatically
+- *(Coming soon: upload photos via the web interface)*
 
-### Explore View
+### Map View (Mobile)
+- View your photos plotted on a map by GPS coordinates
+- Tap markers to see photo details
+- *(Web map view coming soon)*
 
-The Explore view is the main feature of the application, allowing you to:
+## Mobile App
 
-- Interact with the 3D globe by dragging to rotate and scrolling to zoom
-- Click on photo markers on the globe to select them
-- Use the timeline at the bottom to navigate chronologically through your photos
-- Play/pause the timeline for automatic slideshow
-- Navigate to previous/next photos using the timeline controls
+The mobile app is available via Expo and provides:
+- Dashboard with narratives and projects
+- Photo upload from camera roll
+- Map view with photo markers
+- Timeline view for narrative photos
+- Settings for preferences
 
-### Projects Management
+### Running the Mobile App
+See [docs/mobile_dev_guide.md](mobile_dev_guide.md) for setup instructions.
 
-The Projects view allows you to:
+## Current Limitations
 
-- View a list of your narratives
-- Create new narratives
-- Click on a narrative to view its details
-- Organize photos by days
-- Enter presentation mode for full-screen viewing
-
-### Presentation Mode
-
-Presentation mode provides an immersive viewing experience:
-
-- Full-screen display with the 3D globe in the background
-- Large photo display in the foreground
-- Timeline controls at the bottom
-- Location and date information for each photo
-
-## Technical Notes
-
-This prototype demonstrates the core functionality of the Narratives app:
-
-- Interactive 3D globe visualization using Three.js
-- Chronological timeline navigation
-- Synchronized interaction between globe and timeline
-- Project management interface
-- Presentation mode
-
-The application uses:
-- Django and PostgreSQL for the backend
-- React for the frontend
-- Three.js for 3D visualization
-
-## Limitations in the Prototype
-
-- Authentication is simulated (no actual backend validation)
-- Media upload is not fully implemented
-- External service integration (Google Photos, iCloud) is not implemented
-
-## Next Steps
-
-Future development would include:
-- Complete media upload and metadata extraction
-- User authentication and account management
-- Integration with external services
-- Advanced features like facial recognition
-- Mobile responsiveness improvements
+- Web dashboard is read-only (no create/edit/upload yet)
+- No password reset flow
+- No social/OAuth login
+- Mobile app requires the legacy Django backend (Supabase migration planned)
+- Map view on web is a placeholder

@@ -22,8 +22,8 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { apiClient } from '../../../../shared/api/client';
-import type { MediaItem } from '../../../../shared/types';
+import { supabase } from '../../../lib/supabase';
+import type { MediaItem } from '../../../lib/types';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 50;
@@ -49,18 +49,14 @@ export default function TimelineScreen() {
     const fetchMedia = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get<MediaItem[]>('/media/', {
-          params: { narrative: narrativeId },
-        });
-        
-        // Sort by captured date
-        const sorted = response.data.sort((a, b) => {
-          const dateA = a.captured_at ? new Date(a.captured_at).getTime() : 0;
-          const dateB = b.captured_at ? new Date(b.captured_at).getTime() : 0;
-          return dateA - dateB;
-        });
-        
-        setMediaItems(sorted);
+        const { data, error: fetchError } = await supabase
+          .from('media_items')
+          .select('*')
+          .eq('narrative_id', narrativeId)
+          .order('capture_date', { ascending: true });
+
+        if (fetchError) throw fetchError;
+        setMediaItems((data ?? []) as MediaItem[]);
       } catch (err: any) {
         console.error('Failed to fetch timeline media:', err);
         setError('Failed to load timeline');
@@ -254,7 +250,7 @@ export default function TimelineScreen() {
                 {currentItem.title || 'Untitled'}
               </Text>
               <Text variant="bodySmall" style={styles.infoDate}>
-                {formatDate(currentItem.captured_at)}
+                {formatDate(currentItem.capture_date ?? undefined)}
               </Text>
               {currentItem.description && (
                 <Text variant="bodyMedium" style={styles.infoDescription} numberOfLines={2}>

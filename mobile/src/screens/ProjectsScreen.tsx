@@ -9,12 +9,14 @@ import {
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { api } from '../../shared/api/client';
-import { Project } from '../../shared/types';
+import { supabase } from '../../lib/supabase';
+import type { Project } from '../../lib/types';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function ProjectsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
   
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,9 +31,13 @@ export default function ProjectsScreen() {
 
   const loadProjects = useCallback(async () => {
     try {
-      const data = await api.getProjects();
-      setProjects(data);
-      setFilteredProjects(data);
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('date_modified', { ascending: false });
+      if (error) throw error;
+      setProjects((data ?? []) as Project[]);
+      setFilteredProjects((data ?? []) as Project[]);
     } catch (error) {
       console.error('Error loading projects:', error);
     } finally {
@@ -71,17 +77,24 @@ export default function ProjectsScreen() {
     setCreateError('');
 
     try {
-      const newProject = await api.createProject({
-        title: newProjectTitle.trim(),
-        description: newProjectDescription.trim(),
-      });
-      setProjects(prev => [newProject, ...prev]);
+      const { data: newProject, error } = await supabase
+        .from('projects')
+        .insert({
+          title: newProjectTitle.trim(),
+          description: newProjectDescription.trim(),
+          owner_id: user!.id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      const project = newProject as Project;
+      setProjects(prev => [project, ...prev]);
       setShowCreateModal(false);
       setNewProjectTitle('');
       setNewProjectDescription('');
-      router.push(`/(app)/projects/${newProject.id}`);
+      router.push(`/(app)/project/${project.id}` as any);
     } catch (error: any) {
-      setCreateError(error.response?.data?.detail || 'Failed to create project');
+      setCreateError(error.message || 'Failed to create project');
     } finally {
       setIsCreating(false);
     }
@@ -90,10 +103,10 @@ export default function ProjectsScreen() {
   const renderProject = ({ item }: { item: Project }) => (
     <Card
       style={styles.projectCard}
-      onPress={() => router.push(`/(app)/projects/${item.id}`)}
+      onPress={() => router.push(`/(app)/project/${item.id}`)}
     >
-      {item.cover_image ? (
-        <Card.Cover source={{ uri: item.cover_image }} style={styles.coverImage} />
+      {item.cover_image_url ? (
+        <Card.Cover source={{ uri: item.cover_image_url }} style={styles.coverImage} />
       ) : (
         <View style={[styles.coverPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]}>
           <MaterialCommunityIcons 
@@ -121,7 +134,7 @@ export default function ProjectsScreen() {
           <View style={styles.stat}>
             <MaterialCommunityIcons name="book-open-variant" size={16} color={theme.colors.primary} />
             <Text variant="bodySmall" style={{ marginLeft: 4 }}>
-              {item.narratives_count} narratives
+              narratives
             </Text>
           </View>
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>

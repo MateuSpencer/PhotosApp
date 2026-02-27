@@ -10,6 +10,8 @@ import UniversalGlobe from '../components/UniversalGlobe';
 
 export default function Index() {
   const { user, loading } = useAuth();
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width > 900;
 
   if (loading) {
     return (
@@ -25,14 +27,11 @@ export default function Index() {
   }
 
   // If on Native, redirect to Login immediately (Mobile app flow)
-  // You can change this if you want a landing page on mobile too
   if (Platform.OS !== 'web') {
     return <Redirect href="/(auth)/login" />;
   }
 
   // WEB LANDING PAGE
-  const { width } = useWindowDimensions();
-  const isLargeScreen = width > 900;
 
   return (
     <View style={styles.container}>
@@ -124,7 +123,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '800',
     marginBottom: 24,
-    lineHeight: 1.2, // Increased line height to prevent clipping/overlapping
+    lineHeight: 56, // Pixel-based lineHeight required by React Native
     flexWrap: 'wrap',
   },
   heroSubtitle: {
@@ -132,7 +131,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginBottom: 40,
     maxWidth: 600,
-    lineHeight: 1.5,
+    lineHeight: 30,
   },
   ctaContainer: {
     flexDirection: 'row',

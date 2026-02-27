@@ -15,8 +15,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { api } from '../../shared/api/client';
-import { Narrative } from '../../shared/types';
+import { supabase } from '../../lib/supabase';
+import type { Narrative } from '../../lib/types';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - 48) / 3;
@@ -34,6 +35,7 @@ export default function UploadScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { narrativeId } = useLocalSearchParams<{ narrativeId?: string }>();
+  const { user } = useAuth();
   
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [narratives, setNarratives] = useState<Narrative[]>([]);
@@ -63,8 +65,11 @@ export default function UploadScreen() {
 
   const loadNarratives = async () => {
     try {
-      const data = await api.getNarratives();
-      setNarratives(data);
+      const { data } = await supabase
+        .from('narratives')
+        .select('*')
+        .order('date_modified', { ascending: false });
+      setNarratives((data ?? []) as Narrative[]);
     } catch (error) {
       console.error('Error loading narratives:', error);
     }
@@ -135,25 +140,36 @@ export default function UploadScreen() {
       const asset = selectedAssets[i];
       
       try {
-        // Create a blob from the URI
+        // Read file as array buffer for Supabase Storage
         const response = await fetch(asset.uri);
         const blob = await response.blob();
-        
-        // Create form data
-        const formData = new FormData();
-        formData.append('file', {
-          uri: asset.uri,
-          type: asset.type === 'video' ? 'video/mp4' : 'image/jpeg',
-          name: asset.fileName,
-        } as any);
-        
-        if (selectedNarrative) {
-          formData.append('narrative', selectedNarrative);
-        }
-        
-        formData.append('title', asset.fileName.replace(/\.[^/.]+$/, ''));
+        const fileExt = asset.fileName.split('.').pop() || 'jpg';
+        const filePath = `${user!.id}/${Date.now()}_${i}.${fileExt}`;
 
-        await api.uploadMedia(blob, selectedNarrative || undefined, asset.fileName);
+        // 1. Upload to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('media')
+          .upload(filePath, blob, {
+            contentType: asset.type === 'video' ? 'video/mp4' : `image/${fileExt}`,
+            upsert: false,
+          });
+        if (uploadError) throw uploadError;
+
+        // 2. Get the public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('media')
+          .getPublicUrl(filePath);
+
+        // 3. Insert media_items row
+        const { error: insertError } = await supabase.from('media_items').insert({
+          title: asset.fileName.replace(/\.[^/.]+$/, ''),
+          file_url: publicUrlData.publicUrl,
+          media_type: asset.type === 'video' ? 'video' : 'photo',
+          narrative_id: selectedNarrative || null,
+          owner_id: user!.id,
+        });
+        if (insertError) throw insertError;
+
         successCount++;
       } catch (error) {
         console.error(`Error uploading ${asset.fileName}:`, error);
@@ -175,7 +191,7 @@ export default function UploadScreen() {
             text: 'View Photos',
             onPress: () => {
               if (selectedNarrative) {
-                router.push(`/(app)/narratives/${selectedNarrative}`);
+                router.push(`/(app)/narrative/${selectedNarrative}`);
               } else {
                 router.back();
               }
@@ -391,9 +407,9 @@ export default function UploadScreen() {
                   setShowNarrativeModal(false);
                 }}
               >
-                {narrative.cover_image ? (
+                {narrative.cover_image_url ? (
                   <Image 
-                    source={{ uri: narrative.cover_image }} 
+                    source={{ uri: narrative.cover_image_url }} 
                     style={styles.narrativeThumb} 
                   />
                 ) : (
@@ -408,7 +424,7 @@ export default function UploadScreen() {
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text variant="bodyLarge">{narrative.title}</Text>
                   <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    {narrative.media_count} photos
+                    photos
                   </Text>
                 </View>
                 {selectedNarrative === narrative.id && (
